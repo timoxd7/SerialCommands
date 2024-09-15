@@ -1,3 +1,4 @@
+// clang-format off
 /*--------------------------------------------------------------------
 Author		: Pedro Pereira
 License		: BSD
@@ -5,6 +6,8 @@ Repository	: https://github.com/ppedro74/Arduino-SerialCommands
 --------------------------------------------------------------------*/
 
 #include "SerialCommands.h"
+
+#include <string.h>
 
 void SerialCommands::AddCommand(SerialCommand* command)
 {
@@ -47,14 +50,14 @@ void SerialCommands::AddCommand(SerialCommand* command)
 
 SERIAL_COMMANDS_ERRORS SerialCommands::ReadSerial()
 {
-	if (serial_ == NULL)
+	if (!serial_available_.isCallbackSet() || !serial_read_.isCallbackSet())
 	{
 		return SERIAL_COMMANDS_ERROR_NO_SERIAL;
 	}
 
-	while (serial_->available() > 0)
+	while (serial_available_() > 0)
 	{
-		int ch = serial_->read();
+		int ch = serial_read_();
 #ifdef SERIAL_COMMANDS_DEBUG
 		Serial.print("Read: bufLen=");
 		Serial.print(buffer_len_);
@@ -116,7 +119,7 @@ SERIAL_COMMANDS_ERRORS SerialCommands::ReadSerial()
 			char* command = strtok_r(buffer_, delim_, &last_token_);
 			if (command != NULL)
 			{
-				boolean matched = false;
+				bool matched = false;
 				int cx;
 				SerialCommand* cmd;
 				for (cmd = commands_head_, cx = 0; cmd != NULL; cmd = cmd->next, cx++)
@@ -183,22 +186,6 @@ bool SerialCommands::CheckOneKeyCmd()
 	}
 
 	return false;
-}
-
-
-Stream* SerialCommands::GetSerial()
-{
-	return serial_;
-}
-
-void SerialCommands::AttachSerial(Stream* serial)
-{
-	serial_ = serial;
-}
-
-void SerialCommands::DetachSerial()
-{
-	serial_ = NULL;
 }
 
 void SerialCommands::SetDefaultHandler(void(*function)(SerialCommands*, const char*))

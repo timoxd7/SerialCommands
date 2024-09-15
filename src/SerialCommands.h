@@ -1,5 +1,6 @@
+// clang-format off
 /*--------------------------------------------------------------------
-Author		: Pedro Pereira
+Author		: Pedro Pereira & Timo Meyer
 License		: BSD
 Repository	: https://github.com/ppedro74/Arduino-SerialCommands
 --------------------------------------------------------------------*/
@@ -9,7 +10,10 @@ Repository	: https://github.com/ppedro74/Arduino-SerialCommands
 #ifndef SERIAL_COMMANDS_H
 #define SERIAL_COMMANDS_H
 
-#include <Arduino.h>
+#include <stdint.h>
+#include <stddef.h>
+
+#include "callback.hpp"
 
 typedef enum ternary 
 {
@@ -41,8 +45,10 @@ public:
 class SerialCommands
 {
 public:
-	SerialCommands(Stream* serial, char* buffer, int16_t buffer_len, const char* term = "\r\n", const char* delim = " ") :
-		serial_(serial),
+	constexpr SerialCommands(Callback<int> serial_available, Callback<int> serial_read, void* serial_context, char* buffer, int16_t buffer_len, const char* term = "\r\n", const char* delim = " ") :
+		serial_available_(serial_available),
+		serial_read_(serial_read),
+		serial_context_(serial_context),
 		buffer_(buffer),
 		buffer_len_(buffer!=NULL && buffer_len > 0 ? buffer_len - 1 : 0), //string termination char '\0'
 		term_(term),
@@ -60,7 +66,6 @@ public:
 	{
 	}
 
-
 	/**
 	 * \brief Adds a command handler (Uses a linked list)
 	 * \param command 
@@ -74,33 +79,41 @@ public:
 	SERIAL_COMMANDS_ERRORS ReadSerial();
 
 	/**
-	 * \brief Returns the source stream (Serial port)
+	 * \brief Returns the serial stream contex (Serial port)
 	 * \return 
 	 */
-	Stream* GetSerial();
-	
+	inline void* GetSerialContext() { return serial_context_; }
+
 	/**
 	 * \brief Attaches a Serial Port to this object 
 	 * \param serial 
 	 */
-	void AttachSerial(Stream* serial);
-	
+	inline void AttachSerial(Callback<int> serial_available, Callback<int> serial_read, void* serial_context) {
+		serial_available_ = serial_available;
+		serial_read_ = serial_read;
+		serial_context_ = serial_context;
+	}
+
 	/**
 	 * \brief Detaches the serial port, if no serial port nothing will be done at ReadSerial
 	 */
-	void DetachSerial();
-	
+	inline void DetachSerial() {
+		serial_available_ = Callback<int>();
+		serial_read_ = Callback<int>();
+		serial_context_ = NULL;
+	}
+
 	/**
 	 * \brief Sets a default handler can be used for a catch all or unrecognized commands
 	 * \param function 
 	 */
 	void SetDefaultHandler(void(*function)(SerialCommands*, const char*));
-	
+
 	/**
 	 * \brief Clears the buffer, and resets the indexes.
 	 */
 	void ClearBuffer();
-	
+
 	/**
 	 * \brief Gets the next argument
 	 * \return returns NULL if no argument is available
@@ -108,7 +121,9 @@ public:
 	char* Next();
 
 private:
-	Stream* serial_;
+	Callback<int> serial_available_;
+	Callback<int> serial_read_;
+	void *serial_context_;
 	char* buffer_;
 	int16_t buffer_len_;
 	const char* term_;
